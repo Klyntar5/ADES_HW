@@ -1,6 +1,6 @@
-//How Zu Kang Adam DIT/FT/1B/03 p2026677
+//ADES CA1 Play2Win
 console.log("---------------------------------");
-console.log("CA2 > config.js");
+console.log("ADES > CA1 > Readdit > config.js");
 console.log("---------------------------------");
 
 var secret='s12xyz00'; //your own secret key

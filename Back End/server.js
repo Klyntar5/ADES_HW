@@ -1,6 +1,6 @@
-//How Zu Kang Adam DIT/FT/2B/03 p2026677
+//ADES CA1 Play2Win
 console.log("---------------------------------");
-console.log(" ADES > HW > Week 1 > server.js");
+console.log(" ADES > CA1 > Readdit > Week 1 > server.js");
 console.log("---------------------------------");
 
 //-----------------------------------
@@ -13,12 +13,22 @@ const app = require('./controller/app');
 //-----------------------------------
 // configurations
 //-----------------------------------
-const hostname = "localhost";
-const port = 3000;
+
+
+
+
 
 //-----------------------------------
 // main
 //-----------------------------------
+// const port = process.env.PORT;
+// app.listen(port, () => {
+//     console.log(`Server started and accessible via ${port}`);
+// });
+
+
+const hostname = "localhost";
+const port = 3000;
 app.listen(port, hostname, () => {
     console.log(`Server started and accessible via http://${hostname}:${port}/`);
 });

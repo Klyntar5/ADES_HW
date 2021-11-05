@@ -1,243 +1,177 @@
-//How Zu Kang Adam DIT/FT/1B/03 p2026677
+//ADES CA1 Play2Win
 console.log("---------------------------------");
-console.log(" p2026677_AdamHow_1B03_BEDProject > model > foodMenu.js");
+console.log(" ADES > CA1 > Readdit > model > user.js");
 console.log("---------------------------------");
 
 //-----------------------------------
 // imports
 //-----------------------------------
-var db = require('./databaseConfig.js');
-var config=require('../config.js'); 
-var jwt=require('jsonwebtoken');
+var config = require('../config.js');
+var jwt = require('jsonwebtoken');
+const { Op } = require("sequelize");
+
+var sequelize = require('./sequelize/databaseModel.js');
+const e = require('express');
+const { User, User_Type } = sequelize.models;
 
 //-----------------------------------
 // objects / functions
 //-----------------------------------
 var user = {
 
-    getUser: function (id, callback) {
-        // get a connection to the database
-        var conn = db.getConnection();
-
-        conn.connect(function (err) {
-            if (err) {
-                console.log(err);
-                return callback(err, null);
+    login: function (email, password, callback) {
+        User.findAll({
+            attributes: ['user_id', 'username', 'fk_user_type_id'],
+            where: {
+              
+                [Op.and]: [
+                    { email: email },
+                    { password: password }
+                ]
             }
-            else {
-                console.log("Connected!");
+        })
+            .then(function (result) {
+                if (result.length == 0) {
+                    return callback(null, null, null);
+                }
+                // it must be that we have ONE result here,
+                // since the email is Unique
+                else {
+                    //confirm if we have the key
+                    console.log("Secret Key: " + config.key);
+                    console.log("Result[0] userid: " + result[0].user_id);
+                    console.log("Result: " + result)
+                    //generate the token
 
-                var sql = `SELECT 
-                                name,password
-                            FROM 
-                                week1
-                            WHERE
-                                id = ?`;
+                    var token = jwt.sign(
+                        // (1) Payload
+                        {
+                            user_id: result[0].user_id,
+                            type: result[0].fk_user_type_id
+                        },
+                        // (2) Secret Key
+                        config.key,
+                        // (3) Lifretime of token
+                        {
+                            //expires in 24 hrs
+                            expiresIn: 86400
+                        }
+                    );
+                    return callback(null, token, result[0]);
+                }
+            })
+    },
 
-                conn.query(sql, [id], function (err, result) {
-                    conn.end();
-                    if (err) {
-                        console.log(err);
-                        return callback(err, null);
-                    } else {
-                        return callback(null, result);
-                    }
-                });
-            }
-        });
+    getUser: function (userid, callback) {
+        User.findByPk(userid, { raw: true, attributes: ['user_id', 'username', 'email', 'profile_pic', 'two_fa', 'fk_user_type_id'] }).then(function (result) {
+            return callback(null, result);
+        })
     },
 
     getAll: function (callback) {
-        // get a connection to the database
-        var conn = db.getConnection();
+        // find multiple entries
+        User.findAll({ raw: true, attributes: ['user_id', 'username', 'email', 'profile_pic', 'two_fa', 'fk_user_type_id'] }).then(function (result) {
+            return callback(null, result);
+        })
+    },
 
-        conn.connect(function (err) {
-            if (err) {
-                console.log(err);
-                return callback(err, null);
+    addUser: function (username, password, email, profile_pic, two_fa, fk_user_type_id, callback) {
+        User.findOne({ where: { email:email } })
+        .then(function (result) {
+            if (result == null) {
+                User.create({
+                    username: username,
+                    password: password,
+                    email: email,
+                    profile_pic: profile_pic,
+                    two_fa: two_fa,
+                    fk_user_type_id: fk_user_type_id
+                }).then(function (result) {
+                    console.log("Result: " + JSON.stringify(result));
+                    return callback(null, result);
+                })
             }
             else {
-                console.log("Connected!");
+                var result = "duplicate";
+                return callback(null, result);
+            }
+        })
+    },
 
-                var sql = 'SELECT name,password FROM week1';
+    checkPassword: function (userid, password, callback) {
 
-                conn.query(sql, [], function (err, result) {
-                    conn.end();
-                    if (err) {
-                        console.log(err);
-                        return callback(err, null);
-                    } else {
+        User.findOne({ where: {
+
+            [Op.and]: [
+                { user_id: userid },
+                sequelize.where(sequelize.fn('BINARY', sequelize.col('password')), password)
+            ]
+        } })
+        .then(function (result) {
+            console.log("Result: " + result)
+            if (typeof result === "undefined" || result == null) {
+                var result = "Wrong Password";
+                return callback(true, null); 
+            }
+            else {
+                return callback(null,true);
+            }
+        })
+
+        
+    },
+
+    edit: function (userid, user, callback) {
+        var username = user.username;
+        var {old_password,new_password} = user;
+        var email = user.email;
+        var profile_pic = user.profile_pic;
+        var two_fa = user.two_fa;
+        var fk_user_type_id = user.fk_user_type_id;
+        User.findOne({ where: {
+
+            [Op.and]: [
+                { user_id: userid }
+            ]
+        } })
+        .then(function (result) {
+            console.log("Result: " + result)
+            if (typeof result === "undefined" || result == null) {
+                var result = "Wrong Password";
+                return callback(true, null); 
+            }
+            else {
+                if (new_password != null && new_password.trim().length != 0){
+                    old_password = new_password
+                }
+                User.update(
+                    {
+                        username: username,
+                        password: old_password,
+                        email: email,
+                        profile_pic: profile_pic,
+                        two_fa: two_fa,
+                        fk_user_type_id: fk_user_type_id
+                    },
+                    { where: { user_id: userid } }
+                )
+                    .then(function (result) {
                         return callback(null, result);
-                    }
-                });
+                    })
             }
-        });
+        })
+
+        
     },
 
-    addUser: function (name, address, password, callback) {
-        // get a connection to the database
-        var conn = db.getConnection();
-
-        conn.connect(function (err) {
-            if (err) {
-                console.log(err);
-                return callback(err, null);
-            }
-            else {
-                console.log("Connected!");
-
-                var sql = `
-                    INSERT IGNORE INTO
-                        ades.week1(name, address, password)
-                    VALUES
-                        (?,?,?);
-                    `;
-
-                conn.query(sql, [name, address, password], function (err, result) {
-                    conn.end();
-                    if (err) {
-                        console.log(err);
-                        return callback(err, null);
-                    } else {
-                        return callback(null, result);
-                    }
-                });
-            }
-        });
-    },
-
-    edit: function (id, user, callback) {
-        var name = user.name;
-        var password = user.password;
-        var address = user.address;
-
-        // get a connection to the database
-        var conn = db.getConnection();
-
-        conn.connect(function (err) {
-            if (err) {
-                console.log(err);
-                return callback(err, null);
-            }
-            else {
-                console.log("Connected!");
-
-                var sql = `
-                        UPDATE
-                            week1
-                        SET
-                            name = ?,
-                            password = ?,
-                            address = ?
-                        WHERE
-                            id = ?;
-                    `;
-
-                conn.query(sql, [name, password, address, id], function (err, result) {
-                    conn.end();
-                    if (err) {
-                        console.log(err);
-                        return callback(err, null);
-                    } else {
-                        return callback(null, result);
-                    }
-                });
-            }
-        });
-    },
-
-    delete: function (id, callback) {
-        // get a connection to the database
-        var conn = db.getConnection();
-
-        conn.connect(function (err) {
-            if (err) {
-                console.log(err);
-                return callback(err, null);
-            }
-            else {
-                console.log("Connected!");
-
-                var sql = `DELETE FROM 
-                                week1
-                            WHERE
-                                id = ?`;
-
-                conn.query(sql, [id], function (err, result) {
-                    conn.end();
-                    if (err) {
-                        console.log(err);
-                        return callback(err, null);
-                    } else {
-                        return callback(null, result);
-                    }
-                });
-            }
-        });
-    },
-
-    loginUser: function (name, password, callback) {
-
-        var conn = db.getConnection();
-        conn.connect(function (err) {
-            if (err) {
-                console.log(err);
-                return callback(err, null, null);
-            }
-            else {
-                console.log("Connected!");
-
-                var sql = 'select id,name,address from week1 where name = ? and password = ?';
-
-                conn.query(sql, [name, password], function (err, result) {
-                    conn.end();
-
-                    if (err) {
-                        console.log(err);
-                        return callback(err, null, null);
-
-                    } else {
-                        // no results at all
-                        if (result.length == 0) {
-                            return callback(null,null,null);
-                        }
-                        // it must be that we have ONE result here,
-                        // since the email is Unique
-                        else {
-                            // it must be that we have ONE result here,
-                            // since the email is unique
-
-                            //confirm if we have the key
-                            console.log("Secret Key: " + config.key);
-                            console.log(result[0]);
-                            //generate the token
-
-                            var token = jwt.sign(
-                                    // (1) Payload
-                                {
-                                    userid : result[0].userid,
-                                    type : result[0].type
-                                },
-                                    // (2) Secret Key
-                                    config.key,
-                                    // (3) Lifretime of token
-                                {
-                                    //expires in 24 hrs
-                                    expiresIn: 86400
-                                }
-                            );
-
-                            return callback(null, token, result);
-                        }
-                    }
-                });
-
-            }
-
-        });
-    },
+    delete: function (userid, callback) {
+        User.destroy({
+            where: { user_id: userid }
+        }).then(function (result) {
+            return callback(null, result);
+        })
+    }
 }
-
 
 //-----------------------------------
 // exports
